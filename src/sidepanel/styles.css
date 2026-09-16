@@ -31,10 +31,10 @@ h2 { margin: 14px 0 8px; font-size: 15px; line-height: 1.35; }
 .answer.has-answer > .muted { margin-top: 14px; }
 .muted { color: #8b948b; }
 .error { margin-top: 18px; padding: 12px; color: #8c392d; background: #f1d9d0; font-size: 12px; line-height: 1.45; }
-.panel-footer { display: flex; flex-direction: column; gap: 8px; margin-top: 26px; padding-top: 14px; border-top: 1px solid #d0d3c6; color: #8a9188; }
+.panel-footer { display: flex; flex-direction: column; gap: 10px; margin-top: 26px; padding-top: 14px; border-top: 1px solid #d0d3c6; color: #8a9188; }
 .footer-tag { font: 500 10px 'DM Mono', monospace; letter-spacing: .08em; text-transform: uppercase; }
 .signature {
-  align-self: flex-end;
+  align-self: flex-start;
   padding: 6px 10px;
   border: 1px solid rgba(36, 90, 67, 0.15);
   border-radius: 999px;

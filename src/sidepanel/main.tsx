@@ -122,7 +122,7 @@ function App() {
       {error && <div className="error" role="alert">{error}</div>}
       <footer className="panel-footer">
         <span className="footer-tag">POC mode · Backend: localhost:8787</span>
-        <span className="signature">Crafted with love by Manthan Chouhan💚, AI Engineer</span>
+        <span className="signature">Crafted with 💚 by Manthan Chouhan, AI Engineer</span>
       </footer>
     </main>
   );
