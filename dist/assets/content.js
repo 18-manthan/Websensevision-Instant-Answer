@@ -1,0 +1,1 @@
+function i(){const e=window.getSelection()?.toString().trim()??"",t=document.body?.innerText?.replace(/\s+/g," ").trim()??"";return{selectedText:e.slice(0,4e3),pageText:t.slice(0,12e3),title:document.title,url:window.location.href}}chrome.runtime.onMessage.addListener((e,t,n)=>{e?.type==="read-page"&&n(i())});

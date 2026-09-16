@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+
+
+.env
+.env.*
+!.env.example
+
+# Logs and temporary files
+*.log
+tmp/
+.cache/
+
+# Python helper artifacts
+__pycache__/
+*.py[cod]
+.pytest_cache/
+
