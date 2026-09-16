@@ -7,6 +7,9 @@ type CaptureResult = {
   sourceMode: 'dom' | 'screenshot';
 };
 
+let activeCapture: Promise<CaptureResult> | null = null;
+let lastScreenshotAt = 0;
+
 async function getActiveTab() {
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
   if (!tab?.id) throw new Error('No active browser tab was found.');
@@ -58,6 +61,12 @@ async function captureActiveTab(): Promise<CaptureResult> {
     };
   }
 
+  const elapsed = Date.now() - lastScreenshotAt;
+  if (elapsed < 600) {
+    await new Promise((resolve) => setTimeout(resolve, 600 - elapsed));
+  }
+
+  lastScreenshotAt = Date.now();
   const screenshot = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'jpeg', quality: 75 });
   return {
     selectedText: '',
@@ -87,11 +96,15 @@ chrome.commands.onCommand.addListener(async (command) => {
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type !== 'capture-active-tab') return;
-  captureActiveTab()
+  activeCapture ??= captureActiveTab();
+  activeCapture
     .then((result) => sendResponse({ ok: true, result }))
     .catch((error: unknown) => {
       const detail = error instanceof Error ? error.message : 'Capture failed.';
       sendResponse({ ok: false, error: detail });
+    })
+    .finally(() => {
+      activeCapture = null;
     });
   return true;
 });

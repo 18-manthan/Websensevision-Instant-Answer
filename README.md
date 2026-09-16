@@ -42,7 +42,8 @@ The backend calls Groq's OpenAI-compatible chat-completions endpoint. It uses `m
 - Host access: `<all_urls>` is enabled for this POC so the Side Panel can read normal web pages such as ChatGPT and Wikipedia.
 - Browser-internal pages such as `chrome://extensions` remain blocked by Chrome.
 - Default path: selected text or page DOM text.
-- Fallback path: visible-tab screenshot when no useful DOM text is available.
+- Fallback path: visible-tab screenshot followed by Tesseract.js OCR when no useful DOM text is available.
+- OCR language: English (`eng`) in the current POC, packaged locally inside the extension.
 - Answer format: structured question-and-answer cards with MCQ option labels.
 - Response surface: Chrome Side Panel.
 - Backend: `http://localhost:8787`.

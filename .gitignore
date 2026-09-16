@@ -1,8 +1,11 @@
 # Dependencies
 node_modules/
 
+# Build output
+/dist/
+.vite/
 
-
+# Local environment files
 .env
 .env.*
 !.env.example
@@ -11,6 +14,9 @@ node_modules/
 *.log
 tmp/
 .cache/
+
+# Editor / OS files
+.DS_Store
 
 # Python helper artifacts
 __pycache__/

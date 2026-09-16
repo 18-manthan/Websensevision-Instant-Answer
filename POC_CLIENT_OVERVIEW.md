@@ -49,13 +49,13 @@ If the page has text in its rendered DOM, the extension reads it even when the u
 
 If the DOM does not provide useful text, the extension falls back to a screenshot of the visible area of the active tab.
 
-The screenshot is sent to Groq along with an instruction to identify questions, answer choices, and answers. This is the current **vision-based fallback**.
+The screenshot is sent to the local backend, which performs OCR first and then forwards the cleaned text for AI analysis. This is the current **vision-based fallback** path.
 
-### OCR position
+### OCR processing
 
-A separate OCR engine such as Tesseract is not currently used. The current POC sends the screenshot directly to a vision-capable Groq model, which performs visual reading and reasoning in one step.
+The POC now performs OCR on the backend instead of in the extension UI because Chrome extension workers cannot safely run the Tesseract worker under the extension CSP for this use case. This keeps the side panel functioning reliably while still supporting screenshot-based reading for pages that are not text-selectable.
 
-A dedicated OCR layer can be added later if the project needs deterministic text extraction, searchable text, bounding boxes, or stronger language-specific OCR control.
+The current OCR language is English (`eng`). Additional language data and layout-aware processing can be added later.
 
 ## 4. How the AI Answer Is Generated
 
@@ -63,7 +63,8 @@ The backend sends Groq a structured instruction containing:
 
 - The captured page text, when available
 - The selected text, when available
-- The screenshot, when DOM text is unavailable
+- The OCR text derived from the screenshot when DOM text is unavailable
+- The screenshot only as a fallback input when needed
 - Instructions to detect every complete question
 - Instructions to identify MCQ options and preserve their labels
 - Instructions to return a structured JSON response
@@ -84,6 +85,8 @@ The expected response contains:
   ]
 }
 ```
+
+In the current implementation, the backend validates and normalizes the model output before returning it to the extension UI, which helps keep the side panel stable even when the model produces slightly different formatting.
 
 The backend converts the model response into a predictable format before returning it to the extension. If the model returns unexpected formatting, the backend uses a fallback answer object so the UI can still display the result.
 
@@ -180,6 +183,7 @@ Read selected text and rendered DOM text
 - The screenshot capture API should not be called continuously; this POC captures only when the user clicks the action.
 - Groq rate limits, model availability, context limits, and temporary API failures can affect responses.
 - The current UI waits for the completed response; streaming output is not yet implemented.
+- OCR adds processing time and increases the extension bundle size.
 - The current POC does not maintain conversation history between analyses.
 
 ## 8. Security and Deployment Considerations
@@ -198,8 +202,20 @@ The current implementation is suitable for a technical POC, not production deplo
 The POC uses a practical two-stage capture strategy:
 
 1. **DOM extraction first** for fast, accurate webpage text.
-2. **Visible-tab screenshot plus Groq vision processing** when the content is not available as normal selectable text.
+2. **Visible-tab screenshot plus backend OCR and structured Groq analysis** when the content is not available as normal selectable text.
 
 Groq is instructed to identify all questions and MCQ options and return structured results. The Chrome Side Panel then presents those results as clean, numbered answer cards.
 
-This approach is well suited for validating the client workflow. Before production, the project should add stronger security controls, broader test coverage, improved document handling, and additional fallback strategies for difficult pages.
+This approach is well suited for validating the client workflow. Before production, the project should add stronger security controls, broader test coverage, improved document handling, and additional fallback strategies for difficult pages and low-quality scans.
+
+## 10. Demo-Ready Notes
+
+The current demo flow is intentionally simple and reliable:
+
+- DOM extraction remains the default path for normal pages
+- screenshot fallback remains available for pages that are visually rendered but not selectable
+- OCR is handled server-side to remain compatible with Chrome extension sandbox restrictions
+- the UI is designed to highlight answers as structured cards rather than raw text dumps
+- the final output is focused on MCQ or QA-style content, which aligns with the current proof-of-concept objective
+
+This is the right state for a client walkthrough: the flow is visible, understandable, and stable enough to show the value of the concept without requiring deeper product hardening.

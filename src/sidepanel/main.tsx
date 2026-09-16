@@ -8,7 +8,7 @@ type CaptureResult = {
   title: string;
   url: string;
   screenshot?: string;
-  sourceMode: 'dom' | 'screenshot';
+  sourceMode: 'dom' | 'ocr' | 'screenshot';
 };
 
 type AnswerItem = {
@@ -25,7 +25,7 @@ function App() {
   const [capture, setCapture] = useState<CaptureResult | null>(null);
   const [answers, setAnswers] = useState<AnswerItem[]>([]);
   const [answerMode, setAnswerMode] = useState<'qa' | 'mcq'>('qa');
-  const [status, setStatus] = useState<'idle' | 'capturing' | 'thinking' | 'error'>('idle');
+  const [status, setStatus] = useState<'idle' | 'capturing' | 'ocr' | 'thinking' | 'error'>('idle');
   const [error, setError] = useState('');
 
   async function analyzeTab() {
@@ -36,18 +36,29 @@ function App() {
     try {
       const captured = await chrome.runtime.sendMessage({ type: 'capture-active-tab' }) as { ok: boolean; result?: CaptureResult; error?: string };
       if (!captured.ok || !captured.result) throw new Error(captured.error ?? 'Could not capture the active tab.');
-      setCapture(captured.result);
+      let context = captured.result.pageText || captured.result.selectedText;
+      let sourceMode = captured.result.sourceMode;
+      let ocrConfidence: number | undefined;
+
+      if (captured.result.screenshot && !context) {
+        setStatus('thinking');
+        setError('');
+        sourceMode = 'screenshot';
+      }
+
+      setCapture({ ...captured.result, pageText: context, sourceMode });
       setStatus('thinking');
 
       const response = await fetch('http://localhost:8787/ask', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          context: captured.result.pageText || captured.result.selectedText,
+          context,
           selectedText: captured.result.selectedText,
-          image: captured.result.screenshot,
+          image: sourceMode === 'screenshot' ? captured.result.screenshot : undefined,
           page: { title: captured.result.title, url: captured.result.url },
-          sourceMode: captured.result.sourceMode
+          sourceMode,
+          ocrConfidence
         })
       });
       const data = await response.json() as AskResponse & { error?: string };
@@ -56,7 +67,7 @@ function App() {
       setAnswerMode(data.mode ?? 'qa');
       setStatus('idle');
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : 'Something went wrong.');
+      setError(caught instanceof Error ? caught.message : String(caught) || 'Something went wrong.');
       setStatus('error');
     }
   }
@@ -73,8 +84,8 @@ function App() {
 
       <section className="hero">
         <p>Capture the question from the tab you are reading and get a direct answer here.</p>
-        <button className="primary" onClick={analyzeTab} disabled={status === 'capturing' || status === 'thinking'}>
-          <span>{status === 'capturing' ? 'Reading tab...' : status === 'thinking' ? 'Generating answer...' : 'Analyze active tab'}</span>
+        <button className="primary" onClick={analyzeTab} disabled={status === 'capturing' || status === 'ocr' || status === 'thinking'}>
+          <span>{status === 'capturing' ? 'Reading tab...' : status === 'ocr' ? 'Reading image...' : status === 'thinking' ? 'Generating answer...' : 'Analyze active tab'}</span>
           <span aria-hidden="true">→</span>
         </button>
       </section>
@@ -109,7 +120,10 @@ function App() {
       </section>
 
       {error && <div className="error" role="alert">{error}</div>}
-      <footer>POC mode · Backend: localhost:8787</footer>
+      <footer className="panel-footer">
+        <span className="footer-tag">POC mode · Backend: localhost:8787</span>
+        <span className="signature">Crafted with love by Manthan Chouhan💚, AI Engineer</span>
+      </footer>
     </main>
   );
 }

@@ -1,7 +1,7 @@
 {
   "name": "active-tab-ai-poc",
   "private": true,
-  "version": "0.1.5",
+  "version": "0.1.13",
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch",
@@ -10,10 +10,12 @@
   },
   "dependencies": {
     "@fastify/cors": "^10.1.0",
+    "@tesseract.js-data/eng": "^1.0.0",
     "dotenv": "^17.2.1",
     "fastify": "^5.4.0",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.1.1",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@types/chrome": "^0.1.4",

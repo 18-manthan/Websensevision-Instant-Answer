@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import Tesseract from 'tesseract.js';
 
 type AskRequest = {
   context?: string;
@@ -8,7 +9,8 @@ type AskRequest = {
   question?: string;
   image?: string;
   page?: { title?: string; url?: string };
-  sourceMode?: 'dom' | 'screenshot';
+  sourceMode?: 'dom' | 'ocr' | 'screenshot';
+  ocrConfidence?: number;
 };
 
 type AnswerItem = {
@@ -33,19 +35,39 @@ server.get('/health', async () => ({ ok: true, provider: process.env.GROQ_API_KE
 
 server.post<{ Body: AskRequest }>('/ask', async (request, reply) => {
   const body = request.body ?? {};
-  const context = [body.context, body.selectedText].filter(Boolean).join('\n\n').slice(0, 18000);
+  const baseContext = [body.context, body.selectedText].filter(Boolean).join('\n\n').slice(0, 18000);
+  let context = baseContext;
+  let sourceMode = body.sourceMode ?? 'dom';
+
+  if (!context && body.image) {
+    try {
+      const ocrText = await ocrImage(body.image);
+      if (ocrText) {
+        context = ocrText.slice(0, 18000);
+        sourceMode = 'ocr';
+      }
+    } catch (error) {
+      server.log.warn({ err: error }, 'OCR fallback failed on API side.');
+    }
+  }
 
   if (!context && !body.image) {
     return reply.code(400).send({ error: 'No active-tab content was captured.' });
   }
 
+  const askBody = {
+    ...body,
+    sourceMode,
+    image: sourceMode === 'ocr' ? undefined : body.image
+  };
+
   if (process.env.GROQ_API_KEY) {
-    return reply.send(await askGroq(body, context));
+    return reply.send(await askGroq(askBody, context));
   }
 
   return reply.send({
     ...mockAnswer(context),
-    sourceMode: body.sourceMode ?? 'dom',
+    sourceMode,
     provider: 'mock'
   });
 });
@@ -67,6 +89,13 @@ function mockAnswer(context: string): AnswerPayload {
       answer: 'The POC captured the active tab successfully. Add GROQ_API_KEY to generate answers from this content.'
     }]
   };
+}
+
+async function ocrImage(image: string) {
+  const result = await Tesseract.recognize(image, 'eng', {
+    logger: () => undefined
+  });
+  return result.data.text.replace(/\s+/g, ' ').trim();
 }
 
 async function askGroq(body: AskRequest, context: string) {
@@ -110,9 +139,11 @@ function parseAnswerPayload(rawAnswer: string): AnswerPayload {
   try {
     const parsed = JSON.parse(json) as Partial<AnswerPayload>;
     if (Array.isArray(parsed.answers) && parsed.answers.length > 0) {
+      const answers = parsed.answers.filter((item): item is AnswerItem => Boolean(item?.question && item?.answer));
+      if (answers.length === 0) throw new Error('No valid answer items returned.');
       return {
         mode: parsed.mode === 'mcq' ? 'mcq' : 'qa',
-        answers: parsed.answers.filter((item): item is AnswerItem => Boolean(item?.question && item?.answer))
+        answers
       };
     }
   } catch {
