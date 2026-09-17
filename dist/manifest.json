@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Active Tab AI POC",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "Capture context from the active tab and ask an AI model.",
   "permissions": ["activeTab", "scripting", "sidePanel"],
   "host_permissions": ["<all_urls>"],

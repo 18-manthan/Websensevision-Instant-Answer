@@ -1,7 +1,7 @@
 {
   "name": "active-tab-ai-poc",
   "private": true,
-  "version": "0.1.13",
+  "version": "0.1.14",
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch",
