@@ -7,12 +7,11 @@ type CaptureResult = {
   sourceMode: 'dom' | 'screenshot';
 };
 
-let activeCapture: Promise<CaptureResult> | null = null;
 let lastScreenshotAt = 0;
 
 async function getActiveTab() {
   const [tab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
-  if (!tab?.id) throw new Error('No active browser tab was found.');
+  if (typeof tab?.id !== 'number') throw new Error('No active browser tab was found.');
   return tab;
 }
 
@@ -67,7 +66,13 @@ async function captureActiveTab(): Promise<CaptureResult> {
   }
 
   lastScreenshotAt = Date.now();
-  const screenshot = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'jpeg', quality: 75 });
+  let screenshot = '';
+  try {
+    screenshot = await chrome.tabs.captureVisibleTab(tab.windowId, { format: 'jpeg', quality: 70 });
+  } catch {
+    throw new Error('This page could not be captured. Try a normal website tab instead of a browser-internal or restricted page.');
+  }
+
   return {
     selectedText: '',
     pageText: '',
@@ -83,7 +88,7 @@ chrome.runtime.onInstalled.addListener(() => {
 });
 
 chrome.action.onClicked.addListener(async (tab) => {
-  if (tab.windowId) {
+  if (typeof tab.windowId === 'number') {
     await chrome.sidePanel.open({ windowId: tab.windowId });
   }
 });
@@ -91,21 +96,16 @@ chrome.action.onClicked.addListener(async (tab) => {
 chrome.commands.onCommand.addListener(async (command) => {
   if (command !== 'analyze-active-tab') return;
   const tab = await getActiveTab();
-  if (tab.windowId) await chrome.sidePanel.open({ windowId: tab.windowId });
+  if (typeof tab.windowId === 'number') await chrome.sidePanel.open({ windowId: tab.windowId });
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type !== 'capture-active-tab') return;
-  activeCapture ??= captureActiveTab();
-  activeCapture
+  captureActiveTab()
     .then((result) => sendResponse({ ok: true, result }))
     .catch((error: unknown) => {
       const detail = error instanceof Error ? error.message : 'Capture failed.';
       sendResponse({ ok: false, error: detail });
-    })
-    .finally(() => {
-      activeCapture = null;
     });
   return true;
 });
-

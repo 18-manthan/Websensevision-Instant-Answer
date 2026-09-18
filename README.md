@@ -4,6 +4,8 @@ Chrome MV3 proof of concept that reads the active browser tab, sends the capture
 
 ## Run the mock POC
 
+Use Node.js `20.19+` or `22.12+`.
+
 Install dependencies:
 
 ```bash
@@ -34,7 +36,14 @@ Copy `.env.example` to `.env`, set `GROQ_API_KEY`, and restart the backend:
 GROQ_API_KEY=your-key npm run api
 ```
 
-The backend calls Groq's OpenAI-compatible chat-completions endpoint. It uses `meta-llama/llama-4-scout-17b-16e-instruct` by default because the model supports both page text and screenshot input. Change `GROQ_MODEL` as needed.
+The backend calls Groq's OpenAI-compatible chat-completions endpoint. For more reliable production-style responses, text captures use `GROQ_TEXT_MODEL` with Groq JSON Schema output when the selected model supports it. Screenshot-only captures use `GROQ_VISION_MODEL` with JSON Object mode because the vision fallback and structured-output support are model-dependent.
+
+Run checks:
+
+```bash
+npm run typecheck
+npm test
+```
 
 ## Current POC behavior
 
@@ -43,7 +52,7 @@ The backend calls Groq's OpenAI-compatible chat-completions endpoint. It uses `m
 - Browser-internal pages such as `chrome://extensions` remain blocked by Chrome.
 - Default path: selected text or page DOM text.
 - Fallback path: visible-tab screenshot followed by Tesseract.js OCR when no useful DOM text is available.
-- OCR language: English (`eng`) in the current POC, packaged locally inside the extension.
+- OCR language: English (`eng`) in the current POC, loaded by the backend from local `eng.traineddata`.
 - Answer format: structured question-and-answer cards with MCQ option labels.
 - Response surface: Chrome Side Panel.
 - Backend: `http://localhost:8787`.

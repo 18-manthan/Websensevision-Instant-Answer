@@ -2,10 +2,16 @@
   "name": "active-tab-ai-poc",
   "private": true,
   "version": "0.1.14",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19.0"
+  },
   "scripts": {
     "build": "vite build",
     "dev": "vite build --watch",
     "api": "tsx api/server.ts",
+    "test": "tsx --test api/*.test.ts",
+    "test:groq": "node scripts/test.js",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {

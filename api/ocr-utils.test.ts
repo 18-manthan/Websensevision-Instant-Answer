@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { parseAnswerPayload } from './answer-utils';
 import { extractJsonPayload, normalizeOcrText } from './ocr-utils';
 
 test('normalizeOcrText preserves question and option boundaries for MCQ text', () => {
@@ -31,4 +32,30 @@ test('extractJsonPayload handles Generated answer banners before JSON output', (
   assert.ok(result);
   assert.match(result ?? '', /"mode": "mcq"/);
   assert.match(result ?? '', /"question": "What is AI\?"/);
+});
+
+test('parseAnswerPayload normalizes strict Groq JSON schema output', () => {
+  const input = JSON.stringify({
+    mode: 'mcq',
+    answers: [{
+      question: 'What is AI?',
+      answer: 'To simulate human intelligence for specific tasks',
+      optionLabel: 'Option B',
+      optionText: 'To simulate human intelligence for specific tasks',
+      explanation: null
+    }]
+  });
+
+  const result = parseAnswerPayload(input);
+
+  assert.equal(result.mode, 'mcq');
+  assert.equal(result.answers[0].question, 'What is AI?');
+  assert.equal(result.answers[0].optionLabel, 'Option B');
+});
+
+test('parseAnswerPayload rejects incomplete answer items instead of leaking malformed output', () => {
+  assert.throws(
+    () => parseAnswerPayload('{"mode":"qa","answers":[{"question":"Only a question?","answer":""}]}'),
+    /complete answer items/
+  );
 });

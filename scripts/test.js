@@ -1,5 +1,5 @@
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
-const GROQ_MODEL = process.env.GROQ_MODEL || "meta-llama/llama-4-scout-17b-16e-instruct";
+const GROQ_MODEL = process.env.GROQ_TEXT_MODEL || process.env.GROQ_MODEL || "openai/gpt-oss-20b";
 
 if (!GROQ_API_KEY) {
   throw new Error("Set GROQ_API_KEY before running this test.");
@@ -15,7 +15,8 @@ async function testGroq() {
       },
       body: JSON.stringify({
         model: GROQ_MODEL,
-        messages: [{ role: "user", content: "Hello! Tell me in one sentence what you can do." }],
+        messages: [{ role: "user", content: "Return JSON only: {\"ok\":true,\"message\":\"ready\"}" }],
+        response_format: { type: "json_object" },
         temperature: 0.2
       })
     });
@@ -24,7 +25,9 @@ async function testGroq() {
     const data = await response.json();
     console.log("Groq API key is working.");
     console.log("\nResponse:");
-    console.log(data.choices?.[0]?.message?.content ?? "No response content.");
+    const content = data.choices?.[0]?.message?.content ?? "";
+    JSON.parse(content);
+    console.log(content);
   } catch (error) {
     console.log("Groq API key test failed.");
     console.log("Error:", error.message);

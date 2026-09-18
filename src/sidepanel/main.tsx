@@ -20,6 +20,10 @@ type AnswerItem = {
 };
 
 type AskResponse = { answers: AnswerItem[]; mode: 'qa' | 'mcq'; sourceMode: string; provider: string };
+type ApiErrorResponse = { error?: string; code?: string };
+
+const API_BASE_URL = 'http://localhost:8787';
+const API_TIMEOUT_MS = 65000;
 
 function App() {
   const [capture, setCapture] = useState<CaptureResult | null>(null);
@@ -34,40 +38,56 @@ function App() {
     setAnswers([]);
 
     try {
+      if (typeof chrome === 'undefined' || !chrome.runtime?.sendMessage) {
+        throw new Error('Open this panel from the loaded Chrome extension.');
+      }
+
       const captured = await chrome.runtime.sendMessage({ type: 'capture-active-tab' }) as { ok: boolean; result?: CaptureResult; error?: string };
       if (!captured.ok || !captured.result) throw new Error(captured.error ?? 'Could not capture the active tab.');
-      let context = captured.result.pageText || captured.result.selectedText;
+      const pageContext = captured.result.pageText;
+      const displayContext = captured.result.selectedText || pageContext;
       let sourceMode = captured.result.sourceMode;
-      let ocrConfidence: number | undefined;
 
-      if (captured.result.screenshot && !context) {
+      if (captured.result.screenshot && !displayContext) {
         setStatus('thinking');
         setError('');
         sourceMode = 'screenshot';
       }
 
-      setCapture({ ...captured.result, pageText: context, sourceMode });
+      setCapture({ ...captured.result, sourceMode });
       setStatus('thinking');
 
-      const response = await fetch('http://localhost:8787/ask', {
+      const controller = new AbortController();
+      const timeout = window.setTimeout(() => controller.abort(), API_TIMEOUT_MS);
+      const response = await fetch(`${API_BASE_URL}/ask`, {
         method: 'POST',
+        signal: controller.signal,
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          context,
+          context: pageContext,
           selectedText: captured.result.selectedText,
           image: sourceMode === 'screenshot' ? captured.result.screenshot : undefined,
           page: { title: captured.result.title, url: captured.result.url },
-          sourceMode,
-          ocrConfidence
+          sourceMode
         })
-      });
-      const data = await response.json() as AskResponse & { error?: string };
-      if (!response.ok) throw new Error(data.error ?? 'The API request failed.');
-      setAnswers(data.answers ?? []);
-      setAnswerMode(data.mode ?? 'qa');
+      }).finally(() => window.clearTimeout(timeout));
+
+      const data = await readApiJson(response);
+      if (!response.ok) {
+        const apiError = data as ApiErrorResponse;
+        throw new Error(apiError.error || `The API request failed with status ${response.status}.`);
+      }
+
+      const answerData = data as AskResponse;
+      if (!Array.isArray(answerData.answers) || answerData.answers.length === 0) {
+        throw new Error('The backend did not return any answer items.');
+      }
+
+      setAnswers(answerData.answers);
+      setAnswerMode(answerData.mode ?? 'qa');
       setStatus('idle');
     } catch (caught) {
-      setError(caught instanceof Error ? caught.message : String(caught) || 'Something went wrong.');
+      setError(describeError(caught));
       setStatus('error');
     }
   }
@@ -126,6 +146,33 @@ function App() {
       </footer>
     </main>
   );
+}
+
+async function readApiJson(response: Response): Promise<AskResponse | ApiErrorResponse> {
+  const text = await response.text();
+  if (!text.trim()) return {};
+
+  try {
+    return JSON.parse(text) as AskResponse | ApiErrorResponse;
+  } catch {
+    return {
+      error: response.ok
+        ? 'The backend returned malformed JSON.'
+        : `The backend returned a non-JSON error (${response.status}).`
+    };
+  }
+}
+
+function describeError(caught: unknown): string {
+  if (caught instanceof DOMException && caught.name === 'AbortError') {
+    return 'The backend took too long to respond. Please try again.';
+  }
+
+  if (caught instanceof TypeError && /fetch/i.test(caught.message)) {
+    return `Backend is not reachable at ${API_BASE_URL}. Start the API server and try again.`;
+  }
+
+  return caught instanceof Error ? caught.message : String(caught) || 'Something went wrong.';
 }
 
 createRoot(document.getElementById('root')!).render(<StrictMode><App /></StrictMode>);

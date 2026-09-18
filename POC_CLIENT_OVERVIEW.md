@@ -15,7 +15,8 @@ The user does not need to copy and paste the question.
 - **Response surface:** Chrome Side Panel
 - **Backend:** Node.js with Fastify
 - **AI provider:** Groq API
-- **Default model:** `meta-llama/llama-4-scout-17b-16e-instruct`
+- **Default text model:** `openai/gpt-oss-20b`
+- **Default vision model:** `meta-llama/llama-4-scout-17b-16e-instruct`
 - **Communication:** HTTPS/API request from the backend to Groq
 
 The extension uses a **DOM-first approach** because webpage text is faster and more reliable to process than an image whenever the page exposes usable text.
@@ -86,9 +87,7 @@ The expected response contains:
 }
 ```
 
-In the current implementation, the backend validates and normalizes the model output before returning it to the extension UI, which helps keep the side panel stable even when the model produces slightly different formatting.
-
-The backend converts the model response into a predictable format before returning it to the extension. If the model returns unexpected formatting, the backend uses a fallback answer object so the UI can still display the result.
+In the current implementation, the backend validates and normalizes the model output before returning it to the extension UI. If the provider returns malformed or incomplete output after retry, the API returns a clear error instead of displaying a fabricated answer.
 
 ## 5. MCQ and Multiple-Question Handling
 
